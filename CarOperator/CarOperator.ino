@@ -9,10 +9,20 @@
 #include <Servo.h>
 #include <TimedAction.h>
 
-int pinTrigger = 30;  //Der Trigger-Pin des Distanzsensors
-int pinEcho = 31;     //Der Echo-Pin des Distanzsensors
-int pinLenkung = 2;   //Der Pin für die Lenkung
-int pinSpeed = 3;     //Die PWM-Pins der Servos
+int pinTriggerFront = 30;  //Der Trigger-Pin des Distanzsensors GELB
+int pinEchoFront = 31;     //Der Echo-Pin des Distanzsensors BLAU 
+
+int pinTriggerBack = 32;  //Der Trigger-Pin des Distanzsensors GELB
+int pinEchoBack = 33;  //Der Echo-Pin des Distanzsensors BLAU
+
+int pinTriggerRight = 34; //Der Trigger-Pin des Distanzsensors GELB
+int pinEchoRight=35;  //Der Echo-Pin des Distanzsensors BLAU
+
+int pinTriggerLeft = 36;  //Der Trigger-Pin des Distanzsensors GELB
+int pinEchoLeft = 37;  //Der Echo-Pin des Distanzsensors BLAU
+
+int pinLenkung = 4;   //Der Pin für die Lenkung
+int pinSpeed = 7;     //Die PWM-Pins der Servos
 
 int currentSpeed = 100; //Die derzeitige Geschwindigkeit
 int currentAngle = 90;  //Der Aktuelle Winkel des Lenkservos 90=neutral >90 = rechts <90=links; Maximalwerte 50 und 130
@@ -20,7 +30,10 @@ int currentAngle = 90;  //Der Aktuelle Winkel des Lenkservos 90=neutral >90 = re
 Servo servoLenkung,servoSpeed; //Die Objekte zur Steuerung der Servos
             
 int packetSize =0;             //Die Größe des angekommenen Packets
-long distance = 0;            //Die Ditanz des Abstandssensor
+long distanceFront = 0;            //Die Ditanz des Abstandssensor
+long distanceBack = 0;  
+long distanceRight = 0;  
+long distanceLeft = 0;  
 
 char currentOrder;            //Der derzeitige Befehl
 
@@ -42,10 +55,36 @@ EthernetUDP Udp;                            //Das Objekt fÃ¼r unsere UDP-Verbi
 void setup(){
   servoLenkung.attach(pinLenkung);        //WeiÃŸt dem Lenkservo den Pin 2 zu
   servoSpeed.attach(pinSpeed);            //WeiÃŸt dem Speedervo den Pin 3 zu
+  
+  initializeNetwork();
+  initializeSensors();
+ 
+ 
+}
 
-  pinMode(pinEcho, INPUT);                //Setzt den PinMode für den Echo-Pin
-  pinMode(pinTrigger, OUTPUT);            //Setzt den PinMode für den Trigger-Pin
+void loop(){
+  receiveOrder(); //liefert den Befehl vom Ethernetshield
+  processOrder(currentOrder,servoLenkung, servoSpeed); //verarbeitet den erhaltenen Befehl
+  sensortimer.check();      //checkt jede Sekunde die Sensordaten
+  //distancetimer.check();    //schickt jede Sekunde die derzeitige Distanz zum Clienten
+  statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
+}
 
+void initializeSensors(){
+  pinMode(pinEchoFront, INPUT);                //Setzt den PinMode für den Echo-Pin
+  pinMode(pinTriggerFront, OUTPUT);            //Setzt den PinMode für den Trigger-Pin
+
+  pinMode(pinEchoBack, INPUT);                
+  pinMode(pinTriggerBack, OUTPUT);
+  
+  pinMode(pinEchoRight,INPUT);               
+  pinMode(pinTriggerRight, OUTPUT);
+  
+  pinMode(pinEchoLeft, INPUT);                
+  pinMode(pinTriggerLeft, OUTPUT);
+}
+
+void initializeNetwork(){
   Ethernet.begin(mac,ip,gateway,subnet);  //Ethernet wird initialisiert
   Udp.begin(8888);                        //Startet den UDP-Server auf Port 8888
 
@@ -59,14 +98,6 @@ void setup(){
   Serial.println("2");
   delay(1000);
   Serial.println("3");
-}
-
-void loop(){
-  receiveOrder(); //liefert den Befehl vom Ethernetshield
-  processOrder(currentOrder,servoLenkung, servoSpeed); //verarbeitet den erhaltenen Befehl
-  sensortimer.check();      //checkt jede Sekunde die Sensordaten
-  //distancetimer.check();    //schickt jede Sekunde die derzeitige Distanz zum Clienten
-  statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
 }
 
 void receiveOrder(){ // Diese Methode dient dazu Befehle aus dem WLAN-Netz auszulesen
@@ -96,30 +127,30 @@ void processOrder(char order,Servo lenkung, Servo speeds){ //Diese Methode dient
       }  
       break;
     case 'l': //l ... links 
-      if(currentAngle >= 70 && currentAngle <= 110){
+      if(currentAngle-5 >= 70 && currentAngle-5 <= 110){
         currentAngle = currentAngle - 5; //Ã„ndert den derzeitigen Lenkwinkel         
       }
       else{   // ist der Wert des Servos ausserhalb des Wertebereichs, wird er hier entsprechend korrigiert
         if(currentAngle>110){
-            currentAngle=109;
+            currentAngle=110;
         }
             
         if(currentAngle<70){
-           currentAngle=71;
+           currentAngle=70;
         }       
       }
       lenkung.write(currentAngle);
       break;
     case 'r': //r ... rechts
-      if(currentAngle >= 70 && currentAngle <= 110){
+      if(currentAngle+5 >= 70 && currentAngle+5 <= 110){
         currentAngle = currentAngle + 5;  //Siehe case 'l'         
       }
       else{   // ist der Wert des Servos ausserhalb des Wertebereichs, wird er hier entsprechend korrigiert
         if(currentAngle>110){
-            currentAngle=109;
+            currentAngle=110;
         }       
         if(currentAngle<70){
-           currentAngle=71;
+           currentAngle=70;
         }       
       }
       lenkung.write(currentAngle);  //Schreibt den Wert in den Servo
@@ -135,10 +166,14 @@ void printStatus(){     //Ausgabe der Statusdaten
     Serial.print(currentSpeed);
     Serial.print(" Lenkwinkel: ");
     Serial.print(currentAngle);
-    Serial.print(" Abstand: ");
-    Serial.print(distance); 
-    Serial.print(" Befehl: ");
-    Serial.print(currentOrder); 
+    Serial.print(" Abstand vorne: ");
+    Serial.print(distanceFront); 
+     Serial.print(" Abstand hinten: ");
+    Serial.print(distanceBack); 
+     Serial.print(" Abstand rechts: ");
+    Serial.print(distanceRight); 
+     Serial.print(" Abstand links: ");
+    Serial.print(distanceLeft); 
 }
 
 void sendDistance(){      //Leitet die derzeitige Distanz an den Clienten weiter
@@ -146,29 +181,67 @@ void sendDistance(){      //Leitet die derzeitige Distanz an den Clienten weiter
     //remote =  Udp.remoteIP();    //Holt sich die IP des Clienten
     //remoteport = Udp.remotePort();   //Holt sich den Port des Clienten
     Udp.beginPacket(remote,remoteport);  //Startet ein UDP-Packet
-    Udp.write(distance);                 //Schreibt Daten in dieses
+    Udp.write(distanceFront);                 //Schreibt Daten in dieses
     Udp.endPacket();                 // Beendet das UDP Paket
     
   //}
 }
 
 void readSensor(){
+  int pinTrigger=0;
+  int pinEcho=0;
+  long distance=0;
   long duration;
-  digitalWrite(pinTrigger, LOW); 
-  delayMicroseconds(2);
-  digitalWrite(pinTrigger,HIGH);
-  delayMicroseconds(10);
-  digitalWrite(pinTrigger,LOW);
   
-  duration = pulseIn(pinEcho, HIGH);  //Wartet auf einen Pulse vom Ultraschallsensor
-  distance = (duration/2) /29;  
-  if(distance > 300){
-    distance = 300;
-    if(distance < 4){
-      distance =4;
+  for(int x=0;x<4;x++){
+    switch(x){
+      case 0:
+        pinTrigger = pinTriggerFront;
+        pinEcho=pinEchoFront;
+        break;
+      case 1:
+        pinTrigger = pinTriggerBack;
+        pinEcho=pinEchoBack;
+        break;
+      case 2:
+        pinTrigger = pinTriggerRight;
+        pinEcho=pinEchoRight;
+        break;
+      case 3:
+        pinTrigger = pinTriggerLeft;
+        pinEcho=pinEchoLeft;
+        break;
+      
     }
+    digitalWrite(pinTrigger, LOW); 
+    delayMicroseconds(2);
+    digitalWrite(pinTrigger,HIGH);
+    delayMicroseconds(10);
+    digitalWrite(pinTrigger,LOW);
+  
+    duration = pulseIn(pinEcho, HIGH);  //Wartet auf einen Pulse vom Ultraschallsensor
+    distance = (duration/2) /29;  
+    if(distance > 300){
+      distance = 300;
+      if(distance < 4){
+        distance =4;
+      }
+    }
+    if(x==0){
+      distanceFront = distance;
+    }else if(x==1){
+      distanceBack = distance;
+    }else if(x==2){
+      distanceRight = distance;
+    }else if(x==3){
+      distanceLeft = distance;
+    }
+    
   }
 }
+
+
+
 
 
 
