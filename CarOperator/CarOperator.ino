@@ -38,7 +38,7 @@ long distanceLeft = 0;
 char currentOrder;            //Der derzeitige Befehl
 
 TimedAction sensortimer = TimedAction(1000,readSensor);      //Der Timer für die Sensorabrufe
-TimedAction distancetimer = TimedAction(1000,sendDistance);  //Der Timer für das Senden der Distanz
+//TimedAction distancetimer = TimedAction(1000,sendDistance);  //Der Timer für das Senden der Distanz
 TimedAction statustimer = TimedAction(1000,printStatus);     //Der Timer für die Ausgabe des Status
   
 byte mac[] = { 
@@ -58,8 +58,6 @@ void setup(){
   
   initializeNetwork();
   initializeSensors();
- 
- 
 }
 
 void loop(){
@@ -211,7 +209,6 @@ void readSensor(){
         pinTrigger = pinTriggerLeft;
         pinEcho=pinEchoLeft;
         break;
-      
     }
     digitalWrite(pinTrigger, LOW); 
     delayMicroseconds(2);
@@ -235,9 +232,17 @@ void readSensor(){
       distanceRight = distance;
     }else if(x==3){
       distanceLeft = distance;
-    }
-    
+    } 
   }
+}
+
+void avoidCollision(){
+  if(currentSpeed <= 105 && (distanceFront < 50  || distanceBack < 50){
+    servoSpeed.write(80);
+  } 
+  if(currentSpeed > 105 &&  (distanceFront < 100 || distanceBack < 100){
+    servo.Speed.write(80);
+  }  
 }
 
 
