@@ -38,7 +38,7 @@ long distanceLeft = 0;
 char currentOrder;            //Der derzeitige Befehl
 
 TimedAction sensortimer = TimedAction(1000,readSensor);      //Der Timer für die Sensorabrufe
-//TimedAction distancetimer = TimedAction(1000,sendDistance);  //Der Timer für das Senden der Distanz
+TimedAction distancetimer = TimedAction(1000,sendDistance);  //Der Timer für das Senden der Distanz
 TimedAction statustimer = TimedAction(1000,printStatus);     //Der Timer für die Ausgabe des Status
   
 byte mac[] = { 
@@ -63,9 +63,11 @@ void setup(){
 void loop(){
   receiveOrder(); //liefert den Befehl vom Ethernetshield
   processOrder(currentOrder,servoLenkung, servoSpeed); //verarbeitet den erhaltenen Befehl
+  avoidCollision();
   sensortimer.check();      //checkt jede Sekunde die Sensordaten
-  //distancetimer.check();    //schickt jede Sekunde die derzeitige Distanz zum Clienten
+  distancetimer.check();    //schickt jede Sekunde die derzeitige Distanz zum Clienten
   statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
+  delay(10);
 }
 
 void initializeSensors(){
@@ -114,12 +116,18 @@ void processOrder(char order,Servo lenkung, Servo speeds){ //Diese Methode dient
   switch (currentOrder){
     case 'f': //v ... vorwÃ¤rts
       if(currentSpeed < 150){
+         if(currentSpeed < 80 && currentSpeed >= 70){
+           currentSpeed=80;
+         }
          currentSpeed=currentSpeed+1;  //ErhÃ¶ht die derzeitige Geschwindigkeit
          speeds.write(currentSpeed);   //Schreibt den Wert in den Servo     
       }
       break;
     case 'b': //z ... zurÃ¼ck
       if(currentSpeed > 70){
+        if(currentSpeed >= 80 && currentSpeed <= 100){
+          currentSpeed = 80;
+        }
         currentSpeed=currentSpeed-1;  //Senkt die derzeitige Geschwindigkeit 
         speeds.write(currentSpeed);   //siehe case 'f'
       }  
@@ -175,14 +183,17 @@ void printStatus(){     //Ausgabe der Statusdaten
 }
 
 void sendDistance(){      //Leitet die derzeitige Distanz an den Clienten weiter
-//if(packetSize){                      // Ist  ein Paket gekommen, wird dieses verarbeitet 
-    //remote =  Udp.remoteIP();    //Holt sich die IP des Clienten
-    //remoteport = Udp.remotePort();   //Holt sich den Port des Clienten
+ if(packetSize){                      // Ist  ein Paket gekommen, wird dieses verarbeitet 
+    remote =  Udp.remoteIP();    //Holt sich die IP des Clienten
+    remoteport = Udp.remotePort();   //Holt sich den Port des Clienten
     Udp.beginPacket(remote,remoteport);  //Startet ein UDP-Packet
-    Udp.write(distanceFront);                 //Schreibt Daten in dieses
-    Udp.endPacket();                 // Beendet das UDP Paket
-    
-  //}
+    Udp.print("Abstand vorne: "+distanceFront);
+    Udp.print(" Abstand hinten: "+distanceBack);
+    Udp.print(" Abstand links: "+distanceLeft);
+    Udp.print(" Abstand rechts: "+distanceRight);
+    Udp.print(" Geschwindigkeit; "+currentSpeed);
+    Udp.endPacket();                 // Beendet das UDP Paket   
+  }
 }
 
 void readSensor(){
@@ -237,11 +248,11 @@ void readSensor(){
 }
 
 void avoidCollision(){
-  if(currentSpeed <= 105 && (distanceFront < 50  || distanceBack < 50){
+  if(currentSpeed <= 105 && (distanceFront < 50  || distanceBack < 50)){
     servoSpeed.write(80);
   } 
-  if(currentSpeed > 105 &&  (distanceFront < 100 || distanceBack < 100){
-    servo.Speed.write(80);
+  if(currentSpeed > 105 &&  (distanceFront < 100 || distanceBack < 100)){
+    servoSpeed.write(80);
   }  
 }
 
