@@ -188,15 +188,14 @@ void sendDistance(){      //Leitet die derzeitige Distanz an den Clienten weiter
     remote =  Udp.remoteIP();    //Holt sich die IP des Clienten
     remoteport = Udp.remotePort();   //Holt sich den Port des Clienten
     Udp.beginPacket(remote,6666);  //Startet ein UDP-Packet
-    Udp.print("Abstand vorne: ");
     Udp.print(distanceFront);
-    Udp.print(" Abstand hinten: ");
+    Udp.print(",");
     Udp.print(distanceBack);
-    Udp.print(" Abstand links: ");
+    Udp.print(",");
     Udp.print(distanceLeft);
-    Udp.print(" Abstand rechts: ");
+    Udp.print(",");
     Udp.print(distanceRight);
-    Udp.print(" Geschwindigkeit: ");
+    Udp.print(",");
     Udp.print(currentSpeed);
     Udp.endPacket();                 // Beendet das UDP Paket 
 }
