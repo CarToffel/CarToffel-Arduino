@@ -63,10 +63,10 @@ void setup(){
 void loop(){
   receiveOrder(); //liefert den Befehl vom Ethernetshield
   processOrder(currentOrder,servoLenkung, servoSpeed); //verarbeitet den erhaltenen Befehl
-  avoidCollision();
+  //avoidCollision();
   sensortimer.check();      //checkt jede Sekunde die Sensordaten
   distancetimer.check();    //schickt jede Sekunde die derzeitige Distanz zum Clienten
-  statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
+  //statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
   delay(10);
 }
 
@@ -105,6 +105,8 @@ void receiveOrder(){ // Diese Methode dient dazu Befehle aus dem WLAN-Netz auszu
   if(packetSize){                      // Ist  ein Paket gekommen, wird dieses verarbeitet 
     Udp.read(packetBuffer,UDP_TX_PACKET_MAX_SIZE);  //liest das Paket in den Buffer ein
     currentOrder = packetBuffer[0];  //holt sich den ersten Wert aus dem Buffer (unser Befehl)
+    remote =  Udp.remoteIP();    //Holt sich die IP des Clienten
+    remoteport = Udp.remotePort();   //Holt sich den Port des Clienten
   }
   else {
     currentOrder = 'x';
@@ -133,30 +135,30 @@ void processOrder(char order,Servo lenkung, Servo speeds){ //Diese Methode dient
       }  
       break;
     case 'l': //l ... links 
-      if(currentAngle-5 >= 70 && currentAngle-5 <= 110){
+      if(currentAngle-5 >= 65 && currentAngle-5 <= 115){
         currentAngle = currentAngle - 5; //Ã„ndert den derzeitigen Lenkwinkel         
       }
       else{   // ist der Wert des Servos ausserhalb des Wertebereichs, wird er hier entsprechend korrigiert
-        if(currentAngle>110){
-            currentAngle=110;
+        if(currentAngle>115){
+            currentAngle=115;
         }
             
-        if(currentAngle<70){
-           currentAngle=70;
+        if(currentAngle<65){
+           currentAngle=65;
         }       
       }
       lenkung.write(currentAngle);
       break;
     case 'r': //r ... rechts
-      if(currentAngle+5 >= 70 && currentAngle+5 <= 110){
+      if(currentAngle+5 >= 65 && currentAngle+5 <= 115){
         currentAngle = currentAngle + 5;  //Siehe case 'l'         
       }
       else{   // ist der Wert des Servos ausserhalb des Wertebereichs, wird er hier entsprechend korrigiert
-        if(currentAngle>110){
-            currentAngle=110;
+        if(currentAngle>115){
+            currentAngle=115;
         }       
-        if(currentAngle<70){
-           currentAngle=70;
+        if(currentAngle<65){
+           currentAngle=65;
         }       
       }
       lenkung.write(currentAngle);  //Schreibt den Wert in den Servo
@@ -182,18 +184,21 @@ void printStatus(){     //Ausgabe der Statusdaten
     Serial.print(distanceLeft); 
 }
 
-void sendDistance(){      //Leitet die derzeitige Distanz an den Clienten weiter
- if(packetSize){                      // Ist  ein Paket gekommen, wird dieses verarbeitet 
+void sendDistance(){      //Leitet die derzeitige Distanz an den Clienten weiter 
     remote =  Udp.remoteIP();    //Holt sich die IP des Clienten
     remoteport = Udp.remotePort();   //Holt sich den Port des Clienten
-    Udp.beginPacket(remote,remoteport);  //Startet ein UDP-Packet
-    Udp.print("Abstand vorne: "+distanceFront);
-    Udp.print(" Abstand hinten: "+distanceBack);
-    Udp.print(" Abstand links: "+distanceLeft);
-    Udp.print(" Abstand rechts: "+distanceRight);
-    Udp.print(" Geschwindigkeit; "+currentSpeed);
-    Udp.endPacket();                 // Beendet das UDP Paket   
-  }
+    Udp.beginPacket(remote,6666);  //Startet ein UDP-Packet
+    Udp.print("Abstand vorne: ");
+    Udp.print(distanceFront);
+    Udp.print(" Abstand hinten: ");
+    Udp.print(distanceBack);
+    Udp.print(" Abstand links: ");
+    Udp.print(distanceLeft);
+    Udp.print(" Abstand rechts: ");
+    Udp.print(distanceRight);
+    Udp.print(" Geschwindigkeit: ");
+    Udp.print(currentSpeed);
+    Udp.endPacket();                 // Beendet das UDP Paket 
 }
 
 void readSensor(){
