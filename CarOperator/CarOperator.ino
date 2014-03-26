@@ -24,7 +24,7 @@ int pinEchoLeft = 37;  //Der Echo-Pin des Distanzsensors BLAU
 int pinLenkung = 4;   //Der Pin für die Lenkung
 int pinSpeed = 7;     //Die PWM-Pins der Servos
 
-int currentSpeed = 100; //Die derzeitige Geschwindigkeit
+int currentSpeed = 80; //Die derzeitige Geschwindigkeit
 int currentAngle = 90;  //Der Aktuelle Winkel des Lenkservos 90=neutral >90 = rechts <90=links; Maximalwerte 50 und 130
 
 Servo servoLenkung,servoSpeed; //Die Objekte zur Steuerung der Servos
@@ -37,9 +37,9 @@ long distanceLeft = 0;
 
 char currentOrder;            //Der derzeitige Befehl
 
-TimedAction sensortimer = TimedAction(1000,readSensor);      //Der Timer für die Sensorabrufe
+TimedAction sensortimer = TimedAction(500,readSensor);      //Der Timer für die Sensorabrufe
 TimedAction distancetimer = TimedAction(1000,sendDistance);  //Der Timer für das Senden der Distanz
-TimedAction statustimer = TimedAction(1000,printStatus);     //Der Timer für die Ausgabe des Status
+TimedAction statustimer = TimedAction(500,printStatus);     //Der Timer für die Ausgabe des Status
   
 byte mac[] = { 
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // Die MAC-Adresse des Arduino
@@ -55,6 +55,8 @@ EthernetUDP Udp;                            //Das Objekt fÃ¼r unsere UDP-Verbi
 void setup(){
   servoLenkung.attach(pinLenkung);        //WeiÃŸt dem Lenkservo den Pin 2 zu
   servoSpeed.attach(pinSpeed);            //WeiÃŸt dem Speedervo den Pin 3 zu
+  servoSpeed.write(currentSpeed);
+  servoLenkung.write(currentAngle);
   
   initializeNetwork();
   initializeSensors();
@@ -66,7 +68,7 @@ void loop(){
   //avoidCollision();
   sensortimer.check();      //checkt jede Sekunde die Sensordaten
   distancetimer.check();    //schickt jede Sekunde die derzeitige Distanz zum Clienten
-  //statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
+  statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
   delay(10);
 }
 
@@ -116,25 +118,29 @@ void receiveOrder(){ // Diese Methode dient dazu Befehle aus dem WLAN-Netz auszu
 void processOrder(char order,Servo lenkung, Servo speeds){ //Diese Methode dient dazu den erhaltenen Wert aus receiveOrder zu verarbeiten
   currentAngle = lenkung.read(); //liest den derzeitigen Wert des Lenkservos aus 
   switch (currentOrder){
-    case 'f': //v ... vorwÃ¤rts
-      if(currentSpeed < 150){
-         if(currentSpeed < 80 && currentSpeed >= 70){
+    case 's': //s ... stop
+      speeds.write(75);
+      break;
+    case 'f': //f...forward
+      if(currentSpeed < 86){ //Maximalwerte varrieren je nach verwendetem Akku: genutzt wird bei diesen Werten ein 7-Zellen Akku mit 3300mAh
+      currentSpeed=currentSpeed+1;  //ErhÃ¶ht die derzeitige Geschwindigkeit
+         if(currentSpeed <= 79 && currentSpeed >= 70){
            currentSpeed=80;
-         }
-         currentSpeed=currentSpeed+1;  //ErhÃ¶ht die derzeitige Geschwindigkeit
+         }   
          speeds.write(currentSpeed);   //Schreibt den Wert in den Servo     
       }
       break;
-    case 'b': //z ... zurÃ¼ck
-      if(currentSpeed > 70){
-        if(currentSpeed >= 80 && currentSpeed <= 100){
-          currentSpeed = 80;
-        }
+    case 'b': //b...backward
+      if(currentSpeed > 65){
         currentSpeed=currentSpeed-1;  //Senkt die derzeitige Geschwindigkeit 
+        if(currentSpeed >= 70 && currentSpeed <= 79){
+          currentSpeed = 70;
+        }
+        
         speeds.write(currentSpeed);   //siehe case 'f'
       }  
       break;
-    case 'l': //l ... links 
+    case 'l': //l ...left 
       if(currentAngle-5 >= 65 && currentAngle-5 <= 115){
         currentAngle = currentAngle - 5; //Ã„ndert den derzeitigen Lenkwinkel         
       }
@@ -149,7 +155,7 @@ void processOrder(char order,Servo lenkung, Servo speeds){ //Diese Methode dient
       }
       lenkung.write(currentAngle);
       break;
-    case 'r': //r ... rechts
+    case 'r': //r ... right
       if(currentAngle+5 >= 65 && currentAngle+5 <= 115){
         currentAngle = currentAngle + 5;  //Siehe case 'l'         
       }
@@ -163,12 +169,9 @@ void processOrder(char order,Servo lenkung, Servo speeds){ //Diese Methode dient
       }
       lenkung.write(currentAngle);  //Schreibt den Wert in den Servo
       break;
-    case 's': //s ... stop
-      speeds.write(90);
-      break;
-    }    
+  } 
 } 
-void printStatus(){     //Ausgabe der Statusdaten
+void printStatus(){     //Prints the status of the car
     Serial.println();
     Serial.print("Geschwindigkeit: ");
     Serial.print(currentSpeed);
@@ -252,12 +255,15 @@ void readSensor(){
 }
 
 void avoidCollision(){
-  if(currentSpeed <= 105 && (distanceFront < 50  || distanceBack < 50)){
-    servoSpeed.write(80);
-  } 
-  if(currentSpeed > 105 &&  (distanceFront < 100 || distanceBack < 100)){
-    servoSpeed.write(80);
+  if((currentSpeed <= 65 && distanceBack <= 100)||(currentSpeed <= 70 && distanceBack <= 50)){
+    currentSpeed= 75;
+    servoSpeed.write(75);
+  }
+  if((currentSpeed >= 80 &&  distanceFront <= 50) || (currentSpeed >= 85 && distanceFront <= 100)){
+    currentSpeed = 75;
+    servoSpeed.write(75);
   }  
+  
 }
 
 
