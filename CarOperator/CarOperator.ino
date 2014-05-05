@@ -1,3 +1,4 @@
+#include <Average.h>
 #include <Dhcp.h>
 #include <Dns.h>
 #include <Ethernet.h>
@@ -30,16 +31,23 @@ int currentAngle = 90;  //Der Aktuelle Winkel des Lenkservos 90=neutral >90 = re
 Servo servoLenkung,servoSpeed; //Die Objekte zur Steuerung der Servos
             
 int packetSize =0;             //Die Größe des angekommenen Packets
-long distanceFront = 0;            //Die Ditanz des Abstandssensor
-long distanceBack = 0;  
-long distanceRight = 0;  
-long distanceLeft = 0;  
+long distanceFront[5] = {0,0,0,0,0};            //Die Ditanz des Abstandssensor
+long distanceBack[5] = {0,0,0,0,0};  
+long distanceRight[5] = {0,0,0,0,0};  
+long distanceLeft[5] = {0,0,0,0,0};  
+
+long averageFront =0;
+long averageBack =0;
+long averageRight=0;
+long averageLeft=0;
+
+
 
 char currentOrder;            //Der derzeitige Befehl
 
-TimedAction sensortimer = TimedAction(500,readSensor);      //Der Timer für die Sensorabrufe
+TimedAction sensortimer = TimedAction(100,readSensor);      //Der Timer für die Sensorabrufe
 TimedAction distancetimer = TimedAction(1000,sendDistance);  //Der Timer für das Senden der Distanz
-TimedAction statustimer = TimedAction(500,printStatus);     //Der Timer für die Ausgabe des Status
+TimedAction statustimer = TimedAction(1000,printStatus);     //Der Timer für die Ausgabe des Status
   
 byte mac[] = { 
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED }; // Die MAC-Adresse des Arduino
@@ -65,7 +73,7 @@ void setup(){
 void loop(){
   receiveOrder(); //liefert den Befehl vom Ethernetshield
   processOrder(currentOrder,servoLenkung, servoSpeed); //verarbeitet den erhaltenen Befehl
-  //avoidCollision();
+  avoidCollision();
   sensortimer.check();      //checkt jede Sekunde die Sensordaten
   distancetimer.check();    //schickt jede Sekunde die derzeitige Distanz zum Clienten
   statustimer.check();      //schickt jede Sekunde den derzeitigen Status an die Console
@@ -178,29 +186,36 @@ void printStatus(){     //Prints the status of the car
     Serial.print(" Lenkwinkel: ");
     Serial.print(currentAngle);
     Serial.print(" Abstand vorne: ");
-    Serial.print(distanceFront); 
-     Serial.print(" Abstand hinten: ");
-    Serial.print(distanceBack); 
-     Serial.print(" Abstand rechts: ");
-    Serial.print(distanceRight); 
-     Serial.print(" Abstand links: ");
-    Serial.print(distanceLeft); 
+    Serial.print(averageFront); 
+    Serial.print(" Abstand hinten: ");
+    Serial.print(averageBack); 
+    Serial.print(" Abstand rechts: ");
+    Serial.print(averageRight); 
+    Serial.print(" Abstand links: ");
+    Serial.print(averageLeft); 
 }
 
 void sendDistance(){      //Leitet die derzeitige Distanz an den Clienten weiter 
     remote =  Udp.remoteIP();    //Holt sich die IP des Clienten
     remoteport = Udp.remotePort();   //Holt sich den Port des Clienten
     Udp.beginPacket(remote,6666);  //Startet ein UDP-Packet
-    Udp.print(distanceFront);
+    Udp.print(averageFront);
     Udp.print(",");
-    Udp.print(distanceBack);
+    Udp.print(averageBack);
     Udp.print(",");
-    Udp.print(distanceLeft);
+    Udp.print(averageLeft);
     Udp.print(",");
-    Udp.print(distanceRight);
+    Udp.print(averageRight);
     Udp.print(",");
     Udp.print(currentSpeed);
     Udp.endPacket();                 // Beendet das UDP Paket 
+}
+
+void updateArray(long array[], long value){
+  for(int x=4;x>=1;x--){
+    array[x]=array[x-1];
+  }
+  array[0]=value;
 }
 
 void readSensor(){
@@ -243,27 +258,54 @@ void readSensor(){
       }
     }
     if(x==0){
-      distanceFront = distance;
+      updateArray(distanceFront,distance);
+      averageFront= mean(distanceFront,5);
     }else if(x==1){
-      distanceBack = distance;
+      updateArray(distanceBack,distance);
+      averageBack= mean(distanceBack,5);
     }else if(x==2){
-      distanceRight = distance;
+      updateArray(distanceRight,distance);
+      averageRight= mean(distanceRight,5);
     }else if(x==3){
-      distanceLeft = distance;
+      updateArray(distanceLeft,distance);
+      averageLeft= mean(distanceLeft,5);
     } 
   }
 }
 
 void avoidCollision(){
-  if((currentSpeed <= 65 && distanceBack <= 100)||(currentSpeed <= 70 && distanceBack <= 50)){
+  //if((currentSpeed <= 65 && distanceBack <= 100)||(currentSpeed <= 70 && distanceBack <= 50)){
+  if(averageBack <= 75){  
     currentSpeed= 75;
     servoSpeed.write(75);
   }
-  if((currentSpeed >= 80 &&  distanceFront <= 50) || (currentSpeed >= 85 && distanceFront <= 100)){
+  //if((currentSpeed >= 80 &&  distanceFront <= 50) || (currentSpeed >= 85 && distanceFront <= 100)){
+  if(averageFront < 75){  
     currentSpeed = 75;
     servoSpeed.write(75);
   }  
-  
+}
+
+void park(){
+  servoLenkung.write(115); //einschlagen nach rechts
+  while(averageBack > 40){  //solange man nicht ansteht, zurückschieben
+    servoSpeed.write(52);  //zurückschieben
+    delay(5);   
+  }
+  servoSpeed.write(60);    //stop
+  servoLenkung.write(65);  //links einschlagen
+  while(averageBack > 20){
+    servoSpeed.write(52);  //weiter zurück
+    delay(5);
+  }
+  servoSpeed.write(60);    //stop
+  servoLenkung.write(93);} //leicht rechts einschlagen
+  while(averageFront > 20){
+    servoSpeed.write(72);
+    delay(5);
+  }
+  servoSpeed.write(60);
+  servoLenkung.write(90);
 }
 
 
